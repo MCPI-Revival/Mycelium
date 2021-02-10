@@ -64,4 +64,4 @@ server.run()
 
 ## Contributing
 Pull requests are always welcome. 
-If you have any ideas or issues submit them in the [issues tab](https://github.com/MCPI-Revival/Mycelium/issues) in GitHub!
+If you have any ideas or issues submit them in the [issues tab](https://github.com/MCPI-Revival/Mycelium/issues) on GitHub!
