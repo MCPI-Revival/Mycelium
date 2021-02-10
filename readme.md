@@ -2,7 +2,7 @@
 
 Mycelium is a low-level simple MCPE (v0.6.1) framework for creating a server.
 
-## Simple Example Usage
+## Simple Example
 
 ```python
 # This is a simple server that allows the client to connect and nothing else
