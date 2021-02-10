@@ -2,7 +2,7 @@
 
 Mycelium is a low-level simple MCPE (v0.6.1) framework for creating a server.
 
-## Usage
+## Simple Example Usage
 
 ```python
 # This is a simple server that allows the client to connect and nothing else
@@ -64,4 +64,4 @@ server.run()
 
 ## Contributing
 Pull requests are always welcome. 
-If you have any ideas or issues submit them in the issues tab!
+If you have any ideas or issues submit them in the [issues tab](https://github.com/MCPI-Revival/Mycelium/issues) in github!
