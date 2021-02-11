@@ -38,7 +38,7 @@ class Server(object):
             self.EVENTS[id] = func
         return wrap
 
-    def onPacketRecived(self, func: Callable):
+    def onPacketReceived(self, func: Callable):
         self.EVENTS["before"] = func
 
     def afterPacketProcessed(self, func: Callable):
