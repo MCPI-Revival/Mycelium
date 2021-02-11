@@ -147,25 +147,23 @@ def read_address(data):
             str((~struct.unpack(">B", data[4:4 + 1])[0]) & 0xff)
         ])
         port = struct.unpack(">H", data[5:5 + 2])[0]
-        return (addr, port, version)
+        return (addr, port)
     else:
         raise Exception(f"Unknown address version {version}")
 
 def write_address(address):
-    addr, port, version = address
+    print(address)
+    addr, port = address
     buffer = b""
-    buffer += struct.pack(">B", version)
-    if version == 4:
-        parts = addr.split(".")
-        parts_count = len(parts)
-        assert parts_count == 4, f"Expected address length: 4, got {parts_count}"
-        for part in parts:
-            buffer += struct.pack(">B", (~(int(part))) & 0xff)
-        buffer += struct.pack(">H", port)
-        return buffer
-    else:
-        raise Exception(f"Unknown address version {version}")
-
+    buffer += struct.pack(">B", 4)
+    parts = addr.split(".")
+    parts_count = len(parts)
+    assert parts_count == 4, f"Expected address length: 4, got {parts_count}"
+    for part in parts:
+        buffer += struct.pack(">B", (~(int(part))) & 0xff)
+    buffer += struct.pack(">H", port)
+    return buffer
+    
 def read_connected_ping(data):
     connected_ping["id"] = data[0]
     connected_ping["time"] = struct.unpack(">Q", data[1:1 + 8])[0]
@@ -248,11 +246,10 @@ def read_open_connection_request_2(data):
     open_connection_request_2["client_guid"] = struct.unpack(">q", data[26:26 + 8])[0]
 
 def write_open_connection_request_2():
-    server_address = open_connection_request_2["server_address"]
     buffer = b""
     buffer += struct.pack(">B", open_connection_request_2["id"])
     buffer += open_connection_request_2["magic"]
-    buffer += write_address(server_address[0], server_address[1], server_address[2])
+    buffer += write_address(open_connection_request_2["server_address"])
     buffer += struct.pack(">H", open_connection_request_2["mtu_size"])
     buffer += struct.pack(">q", open_connection_request_2["client_guid"])
     return buffer

@@ -1,6 +1,6 @@
 from mycelium.server import Server
 from mycelium.protocol import packets
-from mycelium.utils import binTools
+from mycelium.utils import binTools, commands
 import struct, sys, os
 
 server = Server()
@@ -10,8 +10,9 @@ def send_chat_message(server, address, connection, message):
     server.send_encapsulated(message_packet, address, 0, connection["sequence_order"])
 
 @server.primeEvent(0x82)
-def LoginPacket(rawdata, address, connection):
-    packets.read_encapsulated(rawdata)
+def LoginPacket(context, connection):
+    address = connection["address"]
+    packets.read_encapsulated(context.raw_data)
     data = packets.encapsulated["body"]
     
     # Username
@@ -39,7 +40,8 @@ def LoginPacket(rawdata, address, connection):
     server.send_encapsulated(StartGamePacket, address, 0)
 
 @server.primeEvent(0x84)
-def ReadyPacket(data, address, connection):
+def ReadyPacket(context, connection):
+    address = connection["address"]
     server.send_ack_queue(address)
     
     # AddPlayerPacket
@@ -54,7 +56,7 @@ def ReadyPacket(data, address, connection):
     AddPlayerPacket += bytes([connection["pitch"]])
     AddPlayerPacket += b"\x00" * 4      # 2 shorts
     AddPlayerPacket += b"\xFF"
-    server.broadcast_encapsulated(AddPlayerPacket, address, 0, [connection])
+    server.broadcast_encapsulated(AddPlayerPacket, 0, ignore = [connection])
 
     # Inform players
     message = f"{connection['username']} joined the game."
@@ -62,8 +64,9 @@ def ReadyPacket(data, address, connection):
     print(f"[CHAT] {message}")
 
 @server.primeEvent(0x94)
-def MovePlayerEvent(rawdata, address, connection):
-    packets.read_encapsulated(rawdata)
+def MovePlayerEvent(context, connection):
+    address = connection["address"]
+    packets.read_encapsulated(context.raw_data)
     data = packets.encapsulated["body"]
 
     server.send_ack_queue(address)
@@ -72,8 +75,26 @@ def MovePlayerEvent(rawdata, address, connection):
     connection["yaw"] = struct.unpack(">f", data[17:17 + 4])[0]
     connection["pitch"] = struct.unpack(">f", data["body"][21:21 + 4])[0]
 
-    server.broadcast_encapsulated(rawdata, 0)
+    server.broadcast_encapsulated(context.raw_data, 0)
 
+@server.primeEvent(0xb5)
+def ChatEvent(context, connection):
+    address = connection["address"]
+    packets.read_encapsulated(context.raw_data)
+    data = packets.encapsulated["body"]
+
+    length = struct.unpack(">H", data[1:1 + 2])[0]
+    message = data[3:3 + length].decode()
+
+    if message.startswith("/"):
+        commands.processMessage(context, connection, message)
+        return
+    
+    # ChatPacket
+    ChatPacket = b"\xb5" 
+    ChatPacket += struct.pack(">H", len(message))
+    ChatPacket += message.encode()
+    server.broadcast_encapsulated(ChatPacket, 0, ignore = [connection])
 
 server.set_option("name", "MCCPP;Demo;Mycelium Server")
 server.set_option("entities", 0)

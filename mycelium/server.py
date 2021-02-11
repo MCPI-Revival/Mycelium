@@ -1,5 +1,6 @@
 import os, struct, sys
 from typing import Callable
+from mycelium.types.context import Context
 from mycelium.protocol import packets, handler
 from mycelium.raknet import messages, reliability, socket
 
@@ -13,8 +14,11 @@ class Server(object):
         "accepted_raknet_protocols": [5]
     }
 
+    EVENT_BEFORE = (lambda self, context, connection: None)
+    EVENT_AFTER = (lambda self, context, connection: None)
+
     EVENTS = {
-        
+
     }
 
     STATUS = {
@@ -48,7 +52,7 @@ class Server(object):
         token = str(addr) + ":" + str(port)
         self.connections[token] = {
             "mtu_size": 0,
-            "address": (addr, port, 4),
+            "address": (addr, port),
             "connecton_state": self.STATUS["connecting"],
             "packets_queue": [],
             "sequence_order": 0
@@ -112,7 +116,7 @@ class Server(object):
     def broadcast_encapsulated(self, data, reliability, reliable_frame_index = 0, sequenced_frame_index = 0, ordered_frame_index = 0, order_channel = 0, compound_size = 0, compound_id = 0, compound_index = 0, ignore = []):
         for connection in self.connections.values():
             if not connection in ignore:
-                self.send_encapsulated(data, (connection["address"][0], connection["address"][1]), reliability, reliable_frame_index = 0, sequenced_frame_index = 0, ordered_frame_index = 0, order_channel = 0, compound_size = 0, compound_id = 0, compound_index = 0)
+                self.send_encapsulated(data, connection["address"], reliability, reliable_frame_index = 0, sequenced_frame_index = 0, ordered_frame_index = 0, order_channel = 0, compound_size = 0, compound_id = 0, compound_index = 0)
 
     def packet_handler(self, data, address):
         id = data[0]
@@ -135,15 +139,15 @@ class Server(object):
                 data_packet = packets.encapsulated["body"]
                 id = data_packet[0]
 
-                self.EVENTS["before"](data, address, connection)
+                self.EVENT_BEFORE(Context(self, data), connection)
                 
                 for eventID, func in self.EVENTS.items():
                     if self.OPTIONS["debug"]: print(f"{hex(id)} -> {hex(eventID)}: {str(func)}")
                     if id == eventID:
-                        func(data, address, connection)
+                        func(Context(self, data), connection)
                         break
         
-                self.EVENTS["processed"](data, address, connection)
+                self.EVENT_AFTER(Context(self, data), connection)
 
         elif id == messages.ID_UNCONNECTED_PING:
             socket.send_buffer(self.socket, handler.handle_unconnected_ping(data, self), address)
@@ -155,28 +159,31 @@ class Server(object):
             socket.send_buffer(self.socket, handler.handle_open_connection_request_1(data, self), address)
 
         elif id == messages.ID_OPEN_CONNECTION_REQUEST_2:
-            socket.send_buffer(self.socket, handler.handle_open_connection_request_2(data, (address[0], address[1], 4), self), address)
+            socket.send_buffer(self.socket, handler.handle_open_connection_request_2(data, (address[0], address[1]), self), address)
             
 
-    def handle_connection_request(self, data, address, connection):
-        packets.read_encapsulated(data)
+    def handle_connection_request(self, context, connection):
+        address = connection["address"]
+        packets.read_encapsulated(context.raw_data)
         data_packet = packets.encapsulated["body"]
 
         buffer = handler.handle_connection_request(data_packet, connection)
         self.send_encapsulated(buffer, address, 0)
 
-    def handle_new_connection(self, data, address, connection):
+    def handle_new_connection(self, context, connection):
         packets.read_new_connection(packets.encapsulated["body"])
         print(packets.new_connection)
         connection["connecton_state"] = self.STATUS["connected"]
 
-    def handle_connection_closed(self, data, address, connection):
+    def handle_connection_closed(self, context, connection):
+        address = connection["address"]
         connection["connecton_state"] = self.STATUS["disconnecting"]
         self.remove_connection(address[0], address[1])
         connection["connecton_state"] = self.STATUS["disconnected"]
 
-    def handle_connected_ping(self, data, address, connection):
-        packets.read_encapsulated(data)
+    def handle_connected_ping(self, context, connection):
+        address = connection["address"]
+        packets.read_encapsulated(context.raw_data)
         data_packet = packets.encapsulated["body"]
 
         buffer = handler.handle_connected_ping(data_packet)
