@@ -38,6 +38,12 @@ class Server(object):
             self.EVENTS[id] = func
         return wrap
 
+    def onPacketRecived(self, func: Callable):
+        self.EVENTS["before"] = func
+
+    def afterPacketProcessed(self, func: Callable):
+        self.EVENTS["processed"] = func
+        
     def add_connection(self, addr, port):
         token = str(addr) + ":" + str(port)
         self.connections[token] = {
@@ -128,6 +134,8 @@ class Server(object):
                 packets.read_encapsulated(data)
                 data_packet = packets.encapsulated["body"]
                 id = data_packet[0]
+
+                self.EVENTS["before"](data, address, connection)
                 
                 for eventID, func in self.EVENTS.items():
                     if self.OPTIONS["debug"]: print(f"{hex(id)} -> {hex(eventID)}: {str(func)}")
@@ -135,6 +143,8 @@ class Server(object):
                         func(data, address, connection)
                         break
         
+                self.EVENTS["processed"](data, address, connection)
+
         elif id == messages.ID_UNCONNECTED_PING:
             socket.send_buffer(self.socket, handler.handle_unconnected_ping(data, self), address)
 
