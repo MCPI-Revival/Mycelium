@@ -1,5 +1,6 @@
 import os, struct, sys
 from typing import Callable
+from threading import Thread
 from mycelium.types.context import Context
 from mycelium.protocol import packets, handler
 from mycelium.raknet import messages, reliability, socket
@@ -31,6 +32,7 @@ class Server(object):
     def __init__(self):
         self.socket = socket.create_socket((self.OPTIONS["ip"], self.OPTIONS["port"]))
         self.connections = {}
+        self.socket_thread = None
 
         self.EVENTS[messages.ID_CONNECTION_REQUEST] = self.handle_connection_request
         self.EVENTS[messages.ID_NEW_CONNECTION] = self.handle_new_connection
@@ -172,7 +174,6 @@ class Server(object):
 
     def handle_new_connection(self, context, connection):
         packets.read_new_connection(packets.encapsulated["body"])
-        print(packets.new_connection)
         connection["connecton_state"] = self.STATUS["connected"]
 
     def handle_connection_closed(self, context, connection):
@@ -190,6 +191,10 @@ class Server(object):
         self.send_encapsulated(buffer, address, 0)
 
     def run(self):
+        self.socket_thread = Thread(target = self._run, daemon = True)
+        self.socket_thread.start()
+
+    def _run(self):
         stopped = False
         while not stopped:
             try:

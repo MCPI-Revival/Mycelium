@@ -152,7 +152,6 @@ def read_address(data):
         raise Exception(f"Unknown address version {version}")
 
 def write_address(address):
-    print(address)
     addr, port = address
     buffer = b""
     buffer += struct.pack(">B", 4)

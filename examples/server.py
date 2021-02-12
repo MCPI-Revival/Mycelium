@@ -1,13 +1,18 @@
 from mycelium.server import Server
 from mycelium.protocol import packets
 from mycelium.utils import binTools, commands
+from mycelium.types.context import Context
 import struct, sys, os
 
 server = Server()
 
 def send_chat_message(server, address, connection, message):
-    message_packet = b"\x85" + struct.pack(">H", len(message)) + message.encode()    
-    server.send_encapsulated(message_packet, address, 0, connection["sequence_order"])
+    # ChatPacket
+    ChatPacket = b"\x85" 
+    ChatPacketMessage = message
+    ChatPacket += struct.pack(">H", len(ChatPacketMessage))
+    ChatPacket += ChatPacketMessage.encode()
+    server.broadcast_encapsulated(ChatPacket, 0, ignore = [connection])
 
 @server.primeEvent(0x82)
 def LoginPacket(context, connection):
@@ -73,13 +78,14 @@ def MovePlayerEvent(context, connection):
 
     connection["pos"] = binTools.decode_pos(data[5:5 + 12])
     connection["yaw"] = struct.unpack(">f", data[17:17 + 4])[0]
-    connection["pitch"] = struct.unpack(">f", data["body"][21:21 + 4])[0]
+    connection["pitch"] = struct.unpack(">f", data[21:21 + 4])[0]
 
     server.broadcast_encapsulated(context.raw_data, 0)
 
-@server.primeEvent(0xb5)
+@server.primeEvent(0x85)
 def ChatEvent(context, connection):
     address = connection["address"]
+    username = connection["username"]
     packets.read_encapsulated(context.raw_data)
     data = packets.encapsulated["body"]
 
@@ -91,12 +97,13 @@ def ChatEvent(context, connection):
         return
     
     # ChatPacket
-    ChatPacket = b"\xb5" 
-    ChatPacket += struct.pack(">H", len(message))
-    ChatPacket += message.encode()
+    ChatPacket = b"\x85" 
+    ChatPacketMessage = f"{username}: {message}"
+    ChatPacket += struct.pack(">H", len(ChatPacketMessage))
+    ChatPacket += ChatPacketMessage.encode()
     server.broadcast_encapsulated(ChatPacket, 0, ignore = [connection])
 
 server.set_option("name", "MCCPP;Demo;Mycelium Server")
 server.set_option("entities", 0)
-server.set_option("debug", True)
+server.set_option("debug", False)
 server.run()

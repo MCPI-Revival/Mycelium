@@ -19,8 +19,8 @@ def create_socket(address):
 def receive_buffer(sock):
     try:
         return sock.recvfrom(65535)
-    except:
-        pass
+    except socket.error:
+        return
           
 def send_buffer(sock, buffer, address):
     return sock.sendto(buffer, address)
